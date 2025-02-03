@@ -1,29 +1,14 @@
-"""
-Dash Visualization App for Transaction Analysis
----------------------------------------------------
-This script creates an interactive Plotly Dash app to visualize:
-1. Top 5 products driving sales over the last 6 months (Dynamic).
-2. Monthly sales trends for all products.
-3. Seasonality analysis using decomposition.
-4. Ordered transactions per customer (Descending).
-
-Author: Tristan
-"""
-
 import os
-
-import dash
-import numpy as np
+import streamlit as st
 import pandas as pd
+import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
-from dash import dcc, html
-from dash.dependencies import Input, Output
 from statsmodels.tsa.seasonal import seasonal_decompose
-
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_absolute_error, mean_squared_error
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_absolute_error, mean_squared_error
+import matplotlib.pyplot as plt
 
 # -------------------------- LOAD DATA -------------------------- #
 DATA_DIR = '..' + os.sep + 'data'
@@ -34,256 +19,212 @@ transactions_2 = pd.read_csv(DATA_DIR + os.sep + 'transactions_2.csv', index_col
 
 # Combine transactions
 all_transactions = pd.concat([transactions_1, transactions_2])
+all_transactions = all_transactions.drop_duplicates()
 
 # Ensure date is in datetime format and remove timezone if needed
 all_transactions['date'] = pd.to_datetime(all_transactions['date']).dt.tz_localize(None)
 
+
 # Create a 'month' column for monthly aggregations
 all_transactions['month'] = all_transactions['date'].dt.to_period('M')
 
-# Compute transactions per customer (descending)
-customer_transactions = all_transactions.groupby('customer_id').size().reset_index(name='num_transactions')
-customer_transactions = customer_transactions.sort_values(by='num_transactions', ascending=False)
+# -------------------------- STREAMLIT APP -------------------------- #
 
-# -------------------------- DASH APP -------------------------- #
-app = dash.Dash(__name__)
+st.set_page_config(page_title="Transaction Data Analysis", layout="wide")
 
-app.layout = html.Div([
+st.title("Transaction Data Visualization - Quod Financial Test")
+st.subheader("Analyze and Visualize Transaction Data")
+
+# Sidebar for navigation
+st.sidebar.title("Navigation")
+selected_tab = st.sidebar.radio("Go to:", ["Visualizations", "Prediction Models"])
+
+# Transactions per Customer
+if selected_tab == "Visualizations":
     
-    # Apply Google Fonts
-    html.Link(
-        href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap",
-        rel="stylesheet"
-    ),
+    visualization_select = st.selectbox("Select Visualization:", [
+        "Transactions per Customer", "Transactions per Product", "Monthly Sales Trends", "Top 5 Products", "Seasonality Analysis"
+    ])
     
-    html.H1("Transaction Data Visualization - Quod Financial Test", style={'textAlign': 'center', 'fontFamily': 'Poppins'}),
-    html.H2("Analyze and Visualize Transaction Data", style={'textAlign': 'center', 'fontFamily': 'Poppins'}),
-    
-    dcc.Tabs([
-        # Transactions per Customer (Descending)
-        dcc.Tab(label="Transactions per Customer", children=[
-            html.Br(),
-            dcc.Graph(id='customer-transactions-graph')
-        ]),
+    if visualization_select == "Transactions per Customer":
+        st.subheader("Total Transactions per Customer (Descending)")
         
-        # Monthly Sales Trends
-        dcc.Tab(label="Monthly Sales Trends", children=[
-            html.Br(),
-            html.Label("Select Product for Analysis:", style={'fontFamily': 'Poppins', 'fontWeight': '600'}),
-            dcc.Dropdown(
-                id='product-dropdown',
-                options=[{'label': p, 'value': p} for p in all_transactions['product_id'].unique()],
-                value=all_transactions['product_id'].unique()[0],
-                clearable=False
-            ),
-            dcc.Graph(id='product-transaction-plot')
-        ]),
-        
-        # Top 5 Products (Last 6 Months)
-        dcc.Tab(label="Top 5 Products (Last 6 Months)", children=[
-            html.Br(),
-            html.Label("📅 Select Reference Date:", style={'fontFamily': 'Poppins', 'fontWeight': '600'}),
-            dcc.DatePickerSingle(
-                id='date-picker',
-                min_date_allowed=all_transactions['date'].min(),
-                max_date_allowed=all_transactions['date'].max(),
-                date=all_transactions['date'].max()
-            ),
-            dcc.Graph(id='top-products-graph')
-        ]),
-        
-        # Seasonality Analysis
-        dcc.Tab(label="Seasonality Analysis", children=[
-            html.Br(),
-            html.Label("Select Product for Analysis:", style={'fontFamily': 'Poppins', 'fontWeight': '600'}),
-            dcc.Dropdown(
-                id='seasonality-product-dropdown',
-                options=[{'label': p, 'value': p} for p in all_transactions['product_id'].unique()],
-                value=all_transactions['product_id'].value_counts().idxmax(),
-                clearable=False
-            ),
-            dcc.Graph(id='seasonality-graph'),
-            html.P("We can clearly see the seasonality pattern in the data. We observe that during the months of october and november, the sales are at their peak. This could be due to the holiday season and the need of cars for travel. The trend is also decreasing over time, which could be due to the increase in the number of cars available in the market.", style={'fontFamily': 'Poppins'})
-        ]),
+        # Compute transactions per customer (descending)
+        # Compute transactions per customer (descending)
+        customer_transactions = all_transactions.groupby('customer_id').size().reset_index(name='num_transactions')
+        customer_transactions_sorted = customer_transactions.sort_values(by='num_transactions', ascending=False)
 
-    ]),
-    
-    html.Hr(),
-    
-    html.H2("Prediction models", style={'textAlign': 'center', 'fontFamily': 'Poppins'}),
-    html.Div([
-        # Model selection dropdown
-        html.Label("Select Prediction Model:", style={'fontFamily': 'Poppins', 'fontWeight': '600'}),
-        dcc.Dropdown(
-            id='model-selector',
-            options=[
-                {'label': 'Random Forest', 'value': 'RF'},
-                {'label': 'XGBoost', 'value': 'XGB'}
-                # You can add more options as needed
-            ],
-            value='RF',
-            clearable=False,
-            style={'width': '50%', 'margin': 'auto'}
-        ),
-        html.Br(),
-        
-        # Train Model Button
-        html.Button("Train Model", id="train-button", n_clicks=0, style={'fontFamily': 'Poppins'}),
-        html.Br(), html.Br(),
+        # Store original customer IDs
+        customer_transactions_sorted['original_customer_id'] = customer_transactions_sorted['customer_id']
 
-        # Display a table with performance metrics
-        html.Div(id='performance-table', style={'width': '70%', 'margin': 'auto'}),
+        # Replace customer_id with an index (1 to N) for plotting
+        customer_transactions_sorted['customer_id'] = [i for i in range(1, len(customer_transactions_sorted) + 1)]
 
-        # Automatic plot for actual vs. predicted values
-        dcc.Graph(id='prediction-plot'),
-        
-        # A markdown/text block to explain the feature engineering
-        html.Div([
-            html.H4("Feature Engineering Explanation", style={'fontFamily': 'Poppins'}),
-            dcc.Markdown("""
-                The feature engineering pipeline includes:
-                - **Lag Features:** Transaction counts from the previous 1 to 3 months.
-                - **Rolling Aggregates:** A 3-month rolling average and sum to capture trends.
-                - **Seasonality Dummies:** Month or quarter indicators to capture seasonal variations.
-                - **Recency Features:** Time since the last transaction.
-                These features help the model understand temporal trends and seasonality, 
-                improving its ability to forecast the total transactions in the next three months.
-            """, style={'fontFamily': 'Poppins'})
-        ], style={'width': '70%', 'margin': 'auto', 'padding': '20px', 'border': '1px solid #ddd', 'borderRadius': '5px'})
-    ], style={'padding': '20px', 'backgroundColor': '#f9f9f9', 'borderRadius': '10px', 'margin': '20px auto'} ),
-    
-    html.Hr(),
-    html.P("This dashboard was created using Plotly Dash, a Python framework for building interactive web applications. The data used in this dashboard is a sample of transaction data from a car rental company. The data was preprocessed and analyzed to create the visualizations above.", style={'fontFamily': 'Poppins'}),
-    html.P("Author: Tristan PERROT", style={'fontFamily': 'Poppins', 'textAlign': 'center'}),
-    
-], style={'fontFamily': 'Poppins'})
-
-# -------------------------- CALLBACKS -------------------------- #
-
-# **Update Transactions per Customer Graph (Descending)**
-@app.callback(
-    Output('customer-transactions-graph', 'figure'),
-    Input('customer-transactions-graph', 'id')
-)
-def update_customer_transactions(_):
-    # Ensure the dataframe is not empty
-    if customer_transactions.empty:
-        fig = go.Figure()
-        fig.add_annotation(
-            text="No transactions available",
-            xref="paper", yref="paper",
-            showarrow=False,
-            font=dict(size=20)
+        # Plot bar chart with manually sorted order
+        fig = px.bar(
+            customer_transactions_sorted,
+            x='customer_id',
+            y='num_transactions',
+            title="Total Transactions per Customer",
+            labels={'customer_id': "Customer ID", 'num_transactions': "Number of Transactions", 'original_customer_id': "Original Customer ID"},
+            text_auto=True,
+            hover_data={'original_customer_id': True, 'customer_id': False},
+            color='num_transactions'
         )
-        return fig
 
-    # Ensure correct data types
-    customer_transactions['customer_id'] = customer_transactions['customer_id'].astype(str)
-    customer_transactions['num_transactions'] = pd.to_numeric(customer_transactions['num_transactions'], errors='coerce')
+        # Remove x-axis ticks to avoid showing anonymized IDs
+        fig.update_xaxes(showticklabels=False)
 
-    # Create the bar chart
-    fig = px.bar(
-        customer_transactions,
-        x='customer_id',
-        y='num_transactions',
-        title="Total Transactions per Customer (Descending)",
-        labels={'customer_id': "Customer ID", 'num_transactions': "Number of Transactions"},
-        text_auto=True,
-        color='num_transactions'
-    )
+        st.plotly_chart(fig, use_container_width=True)
 
-    # Update bar color and background color for readability
-    fig.update_traces(marker_color='rgb(158,202,225)', marker_line_color='rgb(8,48,107)', marker_line_width=1.5, opacity=0.6)
+    # Transactions per Product
+    elif visualization_select == "Transactions per Product":
+        st.subheader("Total Transactions per Product (Descending)")
 
-    # Hide x-axis labels for readability
-    fig.update_xaxes(showticklabels=False)
+        # Compute transactions per product (descending)
+        product_transactions = all_transactions.groupby('product_id').size().reset_index(name='num_transactions')
+        product_transactions_sorted = product_transactions.sort_values(by='num_transactions', ascending=False)
 
-    return fig
+        # Store original product IDs
+        product_transactions_sorted['original_product_id'] = product_transactions_sorted['product_id']
 
-# **Update Monthly Sales Trends Graph**
-@app.callback(
-    Output('product-transaction-plot', 'figure'),
-    Input('product-dropdown', 'value')
-)
-def update_graph(product_id):
-    # Filter transactions for the selected product
-    transactions_2018 = all_transactions[
-        (all_transactions['date'].dt.year == 2018) & (all_transactions['product_id'] == product_id)
-    ]
+        # Replace product_id with an index (1 to N) for plotting
+        product_transactions_sorted['product_id'] = [i for i in range(1, len(product_transactions_sorted) + 1)]
 
-    # Group by month
-    transactions_2018_per_month = transactions_2018.groupby(transactions_2018['date'].dt.month).size().reset_index()
-    transactions_2018_per_month.columns = ['Month', 'Number of Transactions']
+        # Plot bar chart with manually sorted order
+        fig = px.bar(
+            product_transactions_sorted,
+            x='product_id',
+            y='num_transactions',
+            title="Total Transactions per Product",
+            labels={'product_id': "Product ID", 'num_transactions': "Number of Transactions", 'original_product_id': "Original Product ID"},
+            text_auto=True,
+            hover_data={'original_product_id': True, 'product_id': False},
+            color='num_transactions'
+        )
 
-    # Map month numbers to names
-    month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-    transactions_2018_per_month['Month'] = transactions_2018_per_month['Month'].apply(lambda x: month_names[x-1])
+        st.plotly_chart(fig, use_container_width=True)
 
-    # Create the figure
-    fig = px.bar(
-        transactions_2018_per_month,
-        x="Month",
-        y="Number of Transactions",
-        title=f"Transaction Frequency per Month for {product_id} in 2018",
-        labels={"Month": "Month", "Number of Transactions": "Transaction Count"},
-        text="Number of Transactions"
-    )
+    # Monthly Sales Trends
+    elif visualization_select == "Monthly Sales Trends":
+        st.subheader("Transaction Frequency per Month")
+        
+        product_id = st.selectbox("Select Product:", all_transactions['product_id'].unique())
+
+        # Filter transactions
+        transactions_2018 = all_transactions[
+            (all_transactions['date'].dt.year == 2018) & (all_transactions['product_id'] == product_id)
+        ]
+
+        transactions_2018_per_month = transactions_2018.groupby(transactions_2018['date'].dt.month).size().reset_index()
+        transactions_2018_per_month.columns = ['Month', 'Number of Transactions']
+        month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+        transactions_2018_per_month['Month'] = transactions_2018_per_month['Month'].apply(lambda x: month_names[x-1])
+
+        fig = px.bar(
+            transactions_2018_per_month,
+            x="Month",
+            y="Number of Transactions",
+            title=f"Transactions per Month for {product_id} in 2018",
+            text="Number of Transactions"
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+    # Top 5 Products (Last 6 Months)
+    elif visualization_select == "Top 5 Products":
+        st.subheader("Top 5 Products (every 6 months)")
+
+        # Resample data to 6-month periods
+        all_transactions['6_month_period'] = all_transactions['date'].dt.to_period('6M')
+
+        # Compute top 5 products for each 6-month period
+        top_5_products_per_period = all_transactions.groupby(['6_month_period', 'product_id']).size().reset_index(name='num_transactions')
+        top_5_products_per_period['rank'] = top_5_products_per_period.groupby('6_month_period')['num_transactions'].rank(method='first', ascending=False)
+        top_5_products = top_5_products_per_period[top_5_products_per_period['rank'] <= 5]['product_id'].unique()
+
+        # Filter transactions to include only top 5 products
+        top_5_transactions = all_transactions[all_transactions['product_id'].isin(top_5_products)]
+
+        # Group by product and 6-month period
+        top_5_6_month_sales = top_5_transactions.groupby(['6_month_period', 'product_id']).size().reset_index(name='num_transactions')
+        
+        # Convert '6_month_period' to string for better readability in the plot
+        top_5_6_month_sales['6_month_period'] = top_5_6_month_sales['6_month_period'].astype(str)
+
+        # Plot
+        fig = px.line(
+            top_5_6_month_sales,
+            x='6_month_period',
+            y='num_transactions',
+            color='product_id',
+            title="Top 5 Products (every 6 months)",
+            labels={'6_month_period': "6-Month Period", 'num_transactions': "Number of Transactions", 'product_id': "Product ID"}
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+
+    # Seasonality Analysis
+    elif visualization_select == "Seasonality Analysis":
+        st.subheader("Seasonality Analysis")
+
+        product_id = st.selectbox("Select Product for Seasonality Analysis:", all_transactions['product_id'].unique())
+
+        product_sales = all_transactions[all_transactions['product_id'] == product_id].groupby('month').size()
+        product_sales.index = product_sales.index.to_timestamp()
+
+        decomposition = seasonal_decompose(product_sales, model='additive', period=12)
+
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=product_sales.index, y=decomposition.observed, mode='lines', name='Observed'))
+        fig.add_trace(go.Scatter(x=product_sales.index, y=decomposition.trend, mode='lines', name='Trend'))
+        fig.add_trace(go.Scatter(x=product_sales.index, y=decomposition.seasonal, mode='lines', name='Seasonality'))
+        fig.add_trace(go.Scatter(x=product_sales.index, y=decomposition.resid, mode='lines', name='Residual'))
+
+        fig.update_layout(
+            title=f"Seasonality Decomposition for {product_id}",
+            xaxis_title="Month",
+            yaxis_title="Transactions",
+            template="plotly_white"
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+        
+        st.write("We can clearly see the seasonality pattern in the data. There is a higher demand in October and November. The trend is also decreasing over time.")
+
+# Prediction Models
+elif selected_tab == "Prediction Models":
+    st.subheader("Prediction Models")
+
+    model_choice = st.selectbox("Select Prediction Model:", ['Random Forest', 'XGBoost'])
     
-    return fig
+    if st.button("Train Model"):
+        st.write("Training model...")
 
-# **Update Top 5 Products based on selected date**
-@app.callback(
-    Output('top-products-graph', 'figure'),
-    Input('date-picker', 'date')
-)
-def update_top_products(reference_date):
-    reference_date = pd.to_datetime(reference_date)
-    start_date = reference_date - pd.DateOffset(months=6)
-    
-    recent_transactions = all_transactions[
-        (all_transactions['date'] >= start_date) & (all_transactions['date'] <= reference_date)
-    ]
-    
-    product_sales = recent_transactions.groupby('product_id').size().reset_index(name='sales')
-    top_5_products = product_sales.nlargest(5, 'sales')
-    
-    fig = px.bar(
-        top_5_products, x='product_id', y='sales', 
-        title="Top 5 Products (Last 6 Months)",
-        labels={'product_id': "Product", 'sales': "Number of Transactions"},
-        text_auto=True
-    )
-    
-    return fig
+        # Feature Engineering Example
+        df_features = all_transactions.groupby(['customer_id', 'month']).size().reset_index(name='num_transactions')
+        df_features['month'] = df_features['month'].dt.to_timestamp()
 
-# **Update Seasonality Graph based on selected product**
-@app.callback(
-    Output('seasonality-graph', 'figure'),
-    Input('seasonality-product-dropdown', 'value')
-)
-def update_seasonality_graph(product_id):
-    product_sales = all_transactions[all_transactions['product_id'] == product_id].groupby('month').size()
-    product_sales.index = product_sales.index.to_timestamp()
-    
-    decomposition = seasonal_decompose(product_sales, model='additive', period=12)
-    
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=product_sales.index, y=decomposition.observed, mode='lines', name='Observed'))
-    fig.add_trace(go.Scatter(x=product_sales.index, y=decomposition.trend, mode='lines', name='Trend'))
-    fig.add_trace(go.Scatter(x=product_sales.index, y=decomposition.seasonal, mode='lines', name='Seasonality'))
-    fig.add_trace(go.Scatter(x=product_sales.index, y=decomposition.resid, mode='lines', name='Residual'))
-    
-    fig.update_layout(
-        title=f"Seasonality Decomposition for {product_id}",
-        xaxis_title="Month",
-        yaxis_title="Transactions",
-        template="plotly_white"
-    )
-    
-    return fig
+        X = df_features[['customer_id', 'num_transactions']]
+        y = df_features['num_transactions'].shift(-1).fillna(0)
 
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
+        if model_choice == "Random Forest":
+            model = RandomForestRegressor(n_estimators=100, random_state=42)
+        else:
+            st.write("XGBoost model implementation needed.")
 
-# -------------------------- RUN APP -------------------------- #
-if __name__ == '__main__':
-    app.run_server(debug=True, port=8051)
+        model.fit(X_train, y_train)
+        y_pred = model.predict(X_test)
+
+        mae = mean_absolute_error(y_test, y_pred)
+        mse = mean_squared_error(y_test, y_pred)
+
+        st.metric("Mean Absolute Error (MAE)", mae)
+        st.metric("Mean Squared Error (MSE)", mse)
+
+        fig = px.scatter(x=y_test, y=y_pred, labels={'x': "Actual", 'y': "Predicted"}, title="Actual vs Predicted")
+        st.plotly_chart(fig, use_container_width=True)
+
+# Footer
+st.write("Built with Streamlit | Author: Tristan PERROT")
