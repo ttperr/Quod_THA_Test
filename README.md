@@ -1,50 +1,130 @@
-### Sales Forecast and analysis
+# **Transaction Data Analysis - Quod Financial Test**
 
-### Expectations
+## **Overview**
 
-The purpose of this test is to assess your problem solving skills, creativity and experience in tackling a data science problem. 
+This repository contains a **transaction data analysis application** built using **Streamlit** for visualization and predictive modeling. The project includes:
 
-You don't need to finish the assignment 100% or perfect your code before posting it. Partial and incomplete solutions will be reviewed as well.
+- **Data loading and preprocessing** to clean and structure transactions.
+- **Visualizations** to explore transaction trends, seasonality, and customer behaviors.
+- **Predictive modeling** using **XGBoost, Random Forest, and LSTM** to forecast transaction behaviors.
+- **Feature importance analysis** to understand key drivers of transaction volume.
 
-### Impress us with your skills in:
+The analysis and results are detailed in **Jupyter notebooks** under `notebooks/`, while the Streamlit application provides an **interactive dashboard** for visualization and model evaluation.
 
-- Python 3
-- Visualizations (Matplolib...)
-- Data processing (Pandas, SQL, etc..)
-- Data structures and algorithms
-- Git (yes, we will read all your commit messages!)
+---
 
-It is completely up to you which data processing framework, machine learning library or visualization tool you use. 
-Just provide us explanation why you have chosen that specific tool for this specific task and in the context of this assignment.
+## **Project Structure**
 
-#### Your code won't be evaluated for Extensive/fancy documentation or diagrams. A readable README.md along with clear in-line comments is enough.
+```bash
+Quod_THA_Test/
+│── src/
+│   ├── app.py                     # Streamlit app
+│   ├── data_loader.py              # Data loading and preprocessing
+│   ├── models.py                   # Model training and evaluation
+│   ├── visualization.py             # Graph and visualization functions
+│   ├── utils.py                     # Utility functions
+│── notebooks/                       # Jupyter notebooks for analysis
+│   ├── main.ipynb                   # Detailed analysis and results
+│── data/                            # Data storage (not included in repo)
+│── requirements.txt                 # Python dependencies
+│── README.md                        # Project documentation
+```
 
+---
 
-### Non Functional Requirements
+## **Installation**
 
-1. Feel free to use Jupyter notebooks as a dev environment but also make sure to include production ready code as .py files along with the model serialization artifacts. 
-2. Create a separate file for loading the saved model and evaluating the results locally. Include clear in-line instructions. 
-3. Code must be forked and pushed on your personal Github (temporarily).
+### **1. Clone the repository**
 
-### Problem statement
+```bash
+git clone https://github.com/yourusername/Quod_THA_Test.git
+cd Quod_THA_Test
+```
 
-The attached dataset contains three features about the customers of a business.
-- Customer ID
-- Product
-- Time stamp
+### **2. Create and activate a virtual environment**
 
-Our goal is to build a model to facilitate the analysis and prediction of the customer behavior and product dynamics. You're free to pick any architecture and any data model that you deem suitable. Make sure to explain your rationale for picking the model. We're interested in models that deliver reasonably high accuracy and are ideally flexible and powerful enough for adding more features. Here are a few basic questions:
+```bash
+python -m venv venv
+source venv/bin/activate  # On Mac/Linux
+venv\Scripts\activate      # On Windows
+```
 
-- Create an ordered (descending) plot that shows the total number of transactions per customer from the most active customer to the least active one. 
-- Given any product ID, create a plot to show its transaction frequency per month for the year 2018. 
-- Build a model to predict the total number of transactions for the next three months per customer anywhere in 2019. For example, given all data up to the end of January 2019, predict the size of the transactions between Feb 1st and April 30th for each customer. Then, measure the performance of your model with appropriate metrics and visuals. 
-- At any time, what are the top 5 products that drove the highest sales over the last six months? Do you see a seasonality effect in this data set?
+### **3. Install dependencies**
 
-Feel free to state and solve any other questions that you find interesting about this data set. Attention to good coding practices and style will be noted. Also, feel free to implement more than one model and compare their performance.
+```bash
+pip install -r requirements.txt
+```
 
-### Final Words
+---
 
-This mini-assignment is designed carefully to stretch your skills beyond everyday data science tasks.
+## **Running the Application**
 
-We value your time and effort. We take this test seriously and will put quality time to check your code with an open mind and objective review process.
+### **1. Run the Streamlit App**
 
+```bash
+cd src
+streamlit run app.py
+```
+
+The dashboard will open in your browser at `http://localhost:8501/`, allowing you to explore:
+
+- **Transaction visualizations**
+- **Seasonality trends**
+- **Prediction models (XGBoost, Random Forest, LSTM)**
+
+---
+
+## **Key Findings**
+
+### **1. Data Insights**
+
+- The transaction data shows a **clear seasonal pattern**, with peaks in October and November.
+- **Certain customers contribute significantly** more transactions than others.
+- **Top-selling products** remain stable over time but shift slightly every six months.
+
+### **2. Model Performance**
+
+| Model         | MAE   | MSE     | R²     |
+| ------------- | ----- | ------- | ------ |
+| XGBoost       | 4.92  | 398.99  | 0.894  |
+| Random Forest | 4.18  | 280.54  | 0.925  |
+| LSTM          | 34.09 | 5916.78 | -0.575 |
+
+**Random Forest outperforms other models**, achieving the lowest MAE and highest R². However, LSTM could improve with hyperparameter tuning and additional data transformations.
+
+---
+
+## **Customization**
+
+### **Adjust Hyperparameters**
+
+Modify `train_model()` in `models.py`:
+
+```python
+model = XGBRegressor(n_estimators=500, learning_rate=0.05, max_depth=6, random_state=42)
+```
+
+### **Extend Feature Engineering**
+
+Update `prepare_data()` in `models.py` to include new lag features:
+
+```python
+df['transactions_lag_4'] = df.groupby('customer_id')['transaction_count'].shift(4)
+```
+
+---
+
+## **Next Steps**
+
+- **Optimize LSTM model** with a more complex architecture.
+- **Enhance feature engineering** with additional temporal and categorical variables.
+- **Expand model evaluation** with cross-validation and confidence intervals.
+- **Try alternative models** like ARIMA, Prophet, or CatBoost for comparison.
+
+---
+
+## **Author**
+
+- **Tristan PERROT**
+- Data Scientist | Machine Learning Engineer
+- [LinkedIn](https://www.linkedin.com/in/tristanperrot/) | [GitHub](https://github.com/yourusername)
