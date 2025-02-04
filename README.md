@@ -2,14 +2,14 @@
 
 ## **Overview**
 
-This repository contains a **transaction data analysis application** built using **Streamlit** for visualization and predictive modeling. The project includes:
+This repository contains a **transaction data analysis application** built using **StreamLit** for visualization and predictive modeling. The project includes:
 
 - **Data loading and preprocessing** to clean and structure transactions.
 - **Visualizations** to explore transaction trends, seasonality, and customer behaviors.
 - **Predictive modeling** using **XGBoost, Random Forest, and LSTM** to forecast transaction behaviors.
 - **Feature importance analysis** to understand key drivers of transaction volume.
 
-The analysis and results are detailed in **Jupyter notebooks** under `notebooks/`, while the Streamlit application provides an **interactive dashboard** for visualization and model evaluation.
+The analysis and results are detailed in **Jupyter notebooks** under `notebooks/`, while the StreamLit application provides an **interactive dashboard** for visualization and model evaluation.
 
 ---
 
@@ -37,8 +37,8 @@ Quod_THA_Test/
 ### **1. Clone the repository**
 
 ```bash
-git clone https://github.com/yourusername/Quod_THA_Test.git
-cd Quod_THA_Test
+git clone https://github.com/yourusername/Quod_THA.git
+cd Quod_THA
 ```
 
 ### **2. Create and activate a virtual environment**
